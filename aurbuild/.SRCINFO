@@ -1,0 +1,11 @@
+pkgbase = aurbuild
+	pkgdesc = Collection of scripts to build and release packages from 'aur shaped' repositories
+	pkgver = 1.1.0
+	pkgrel = 1
+	url = https://github.com/vbouchaud/aur/tree/main/aurbuild
+	arch = any
+	license = MIT
+	source = aurbuild
+	sha256sums = f4f8bcf403a32e419791cb6cbd2b16c9925d9984b9338d8888991ac8c76d9708
+
+pkgname = aurbuild
