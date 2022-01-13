@@ -17,6 +17,5 @@ source=(
 )
 
 package() {
-    echo $TEST_VARIABLE
     install -D -m0755 "${srcdir}/aurbuild" "${pkgdir}/usr/bin/aurbuild"
 }
