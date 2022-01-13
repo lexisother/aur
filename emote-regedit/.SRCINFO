@@ -1,0 +1,15 @@
+pkgbase = emote-regedit
+	pkgdesc = Script for managing a custom CCBot-like emote registry.
+	pkgver = 1.0.0
+	pkgrel = 1
+	url = https://gist.github.com/lexisother/a802353389fc776f2b10ea04ab0cb7c4
+	arch = any
+	license = MIT
+	depends = zsh
+	depends = jq
+	depends = curl
+	depends = openssh
+	source = emote-regedit
+	sha256sums = a42f041d5aa3d9a4eaa2778f771fb37f7523d486aa73b3b1227ba5f20919f74b
+
+pkgname = emote-regedit

@@ -1,0 +1,170 @@
+#!/usr/bin/env zsh
+
+SCRIPT_PATH="${0:a:h}"
+CONFIG_PATH="$HOME/.config/emote-regedit"
+
+# Utility functions {{{
+  # Logging {{{
+    ansi_reset="$(tput sgr0 || true)"
+    ansi_red="$(tput setaf 1 || true)"
+    ansi_yellow="$(tput setaf 3 || true)"
+    ansi_blue="$(tput setaf 4 || true)"
+    ansi_green="$(tput setaf 2 || true)"
+    log_info()    { echo >&2 "${ansi_blue}[info]${ansi_reset}" "$@"; }
+    log_warn()    { echo >&2 "${ansi_yellow}[warn]${ansi_reset}" "$@"; }
+    log_error()   { echo >&2 "${ansi_red}[ERROR]${ansi_reset}" "$@"; }
+    log_success() { echo >&2 "${ansi_green}[success]${ansi_reset}" "$@"; }
+
+    # Use the log_error function to indicate where an error occurs
+    trap 'log_error line $LINENO' ERR
+  # }}}
+
+  # Checks for command on path
+  command_exists() {
+      whence -- "$@" &> /dev/null
+  }
+# }}}
+
+# Preliminary checks {{{
+  # Programs {{{
+    if ! command_exists curl; then
+      log_error "cURL not found!"
+      log_error "Please check if you have installed cURL on your system."
+      exit 1
+    fi
+
+    if ! command_exists jq; then
+      log_error "jq not found!"
+      log_error "Please check if you have installed jq on your system."
+      exit 1
+    fi
+
+    if ! command_exists crudini; then
+      log_error "crudini not found!"
+      log_error "Please check if you have installed crudini on your system."
+      exit 1
+    fi
+
+
+    if ! command_exists scp; then
+      log_error "scp not found!"
+      log_error "Please check if you have installed openssh on your system."
+      exit 1
+    fi
+  # }}}
+
+  # Config {{{
+    if ! [ -d "$CONFIG_PATH" ]; then
+      mkdir -p "$CONFIG_PATH"
+    fi
+    if ! [ -f "$CONFIG_PATH/config.ini" ]; then
+      # Echo the default configuration into the file
+      echo "[config]" > "$CONFIG_PATH/config.ini"
+      echo "HTTPHOST=https://stronghold.crosscode.ru/~ccbot/emote-registry.json" >> "$CONFIG_PATH/config.ini"
+      echo "SSHHOST=user@example.com" >> "$CONFIG_PATH/config.ini"
+      echo "SSHPORT=21" >> "$CONFIG_PATH/config.ini"
+      echo "TARGETDIR=~/public_web" >> "$CONFIG_PATH/config.ini"
+    fi
+
+    # Just to minimize how much I have to type later on.
+    config_file="$CONFIG_PATH/config.ini"
+    get_config_value() { crudini --get $config_file config "$1"; }
+    set_config_value() { crudini --set $config_file config "$1" "$2"; }
+  # }}}
+# }}}
+
+NETWORK_TIMEOUT=10
+HTTP_HOST=$(get_config_value HTTPHOST)
+SSH_HOST=$(get_config_value SSHHOST)
+SSH_PORT=$(get_config_value SSHPORT)
+TARGET_DIR=$(get_config_value TARGETDIR)
+
+# A wrapper around curl to avoid repetition
+curl () {
+  command curl --location --fail --max-time "$NETWORK_TIMEOUT" "$@"
+}
+
+sync() {
+  if [[ "$SSH_HOST" == "user@example.com" ]]; then
+    log_error "You have not changed your SSH details!"
+    log_error "Please run 'regedit config set SSHHOST <user@example.com>' to set your details."
+    exit 1
+  fi
+
+  log_info "Uploading local emote registry to remote..."
+  scp -P "$SSH_PORT" "$CONFIG_PATH/emote-registry.json" "$SSH_HOST:$TARGET_DIR/emote-registry.json"
+  log_success "Done!"
+}
+
+usage() {
+  if [ -z $1 ] || [ $1 == "version" ]; then
+    echo -e "Emote Registry Editor v1.0"
+    if ! [ -z $1 ]; then exit; fi
+    echo "Editing your registries since... 2001, or something like that."
+    echo ""
+  elif [ $1 != "\r" ]; then
+    echo -e $1
+  fi
+
+  echo -e "Usage: regedit <command> [arguments]\n"
+  echo "Commands:"
+  echo "   add    - Adds an emote to the registry"
+  echo "   remove - Removes an emote from the registry."
+  echo "   sync   - Manually sync the registry."
+  echo "   config - Alters the configuration."
+}
+
+if [ $# -eq 0 ]; then
+  usage
+elif [[ $1 == "usage" ]] || [[ $1 == "--usage" ]] || [[ $1 == "-h" ]] || [[ $1 == "--help" ]]; then
+  usage
+elif [[ $1 == "version" ]] || [[ $1 == "-v" ]] || [[ $1 == "--version" ]]; then
+  usage "version"
+fi
+
+case "$1" in
+  add)
+    if ! [ -f "$CONFIG_PATH/emote-registry.json" ]; then
+      log_info "No local copy of the emote registry found, downloading..."
+      curl -o "$CONFIG_PATH/emote-registry.json" "$HTTP_HOST"
+      log_info "Done."
+    fi
+
+    read "? What is your emote name? " emotename </dev/tty
+    read "? What is your emote ID? " emoteid </dev/tty
+    read "? What is the emote URL? " emoteurl </dev/tty
+    read "? What is the guild name? " guildname </dev/tty
+
+    exists=$(jq ".list[] | select(.id == \"$emoteid\")" "$CONFIG_PATH/emote-registry.json")
+    if [ -z "$exists" ]; then
+      echo "new"
+    else
+      log_error "Emote with ID '$emoteid' already exists!"
+      exit 1
+    fi
+
+    jq -c ".list += [{\"ref\": \"$emotename\", \"name\": \"$emotename\", \"id\": \"$emoteid\", \"url\": \"$emoteurl\", \"guild_name\": \"$guildname\", \"safe\": true}]" "$CONFIG_PATH/emote-registry.json" > "$CONFIG_PATH/emote-registry-temp.json"
+    mv "$CONFIG_PATH/emote-registry-temp.json" "$CONFIG_PATH/emote-registry.json"
+  ;;
+
+  sync)
+    sync
+  ;;
+
+  # Wrapper around crudini
+  config)
+    if [ $# -eq 1 ]; then
+      echo "Usage: config <get> <name>         - Gets a config value."
+      echo "       config <set> <name> <value> - Sets a config value."
+      exit 1
+    fi
+    case "$2" in
+      get)
+        get_config_value "$3"
+      ;;
+      set)
+        set_config_value "$3" "$4"
+      ;;
+    esac
+  ;;
+esac
