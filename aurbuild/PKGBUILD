@@ -9,7 +9,7 @@ url="https://github.com/vbouchaud/aur/tree/main/aurbuild"
 license=("MIT")
 
 sha256sums=(
-    "d4eb3a737994bc83fa5371b4f1acc038a2b0d15ff68f83958b8233aa131cc53e"
+    "fb88443b82a7e008a6a14d426c65eca65b252cfb58a8aae4dbd59c9b08dac0bd"
 )
 
 source=(

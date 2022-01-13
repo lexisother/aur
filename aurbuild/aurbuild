@@ -98,6 +98,20 @@ if [ -n "$auto_update" ]; then
     done
 fi
 
+if [ -n "$auto_publish" ]; then
+    if [ -n "$publish_location" ]; then
+        if [ -n "$publish_port" ]; then
+            scp -r -P "$publish_port" "$repository_location" "$publish_location"
+        else
+            scp -r "$repository_location" "$publish_location"
+        fi
+    else
+        log_error "You have enabled auto publishing, but have not specified a publish location!"
+        log_error "Please define a variable 'publish_location' with a value like 'user@example.com:~/directory'"
+        exit 1
+    fi
+fi
+
 cd "$location"
 
 if [ ${#failures[@]} -gt 0 ]; then
